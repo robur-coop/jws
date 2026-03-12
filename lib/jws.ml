@@ -2,6 +2,26 @@ let msg_to_failure = function Ok v -> v | Error (`Msg msg) -> failwith msg
 let error_msgf fmt = Format.kasprintf (fun msg -> Error (`Msg msg)) fmt
 let ( let* ) = Result.bind
 
+exception Jws_error of string
+
+let jws_errorf fmt = Format.kasprintf (fun str -> raise (Jws_error str)) fmt
+
+let msg_to_jws_error = function
+  | Ok v -> v
+  | Error (`Msg msg) -> raise (Jws_error msg)
+
+let msg_to_base64_error = function
+  | Ok v -> v
+  | Error (`Msg msg) -> raise (Jwk.Base64_error msg)
+
+let msg_to_invalid_arg = function
+  | Ok v -> v
+  | Error (`Msg msg) -> invalid_arg msg
+
+let error_to_jws_error = function
+  | Ok v -> v
+  | Error msg -> raise (Jws_error msg)
+
 module S = Map.Make (String)
 module Base64u = Base64u
 module Jwk = Jwk
@@ -69,6 +89,10 @@ module Pk = struct
     | `ED25519 pk, (#Jwa.alg_for_ed25519 as alg) -> Ed25519 (alg, pk)
     | _ -> invalid_arg "Algorithm and private key mismatch"
 
+  module P0 = Mirage_crypto_pk.Rsa.PSS (Digestif.SHA256)
+  module P1 = Mirage_crypto_pk.Rsa.PSS (Digestif.SHA384)
+  module P2 = Mirage_crypto_pk.Rsa.PSS (Digestif.SHA512)
+
   let tsign alg_and_pk data =
     match alg_and_pk with
     | RSA ((#Jwa.alg_for_rsa0 as alg), key) ->
@@ -77,15 +101,9 @@ module Pk = struct
         let module Hash = (val Digestif.module_of_hash' hash) in
         let digest = Hash.to_raw_string (Hash.digest_string data) in
         Mirage_crypto_pk.Rsa.PKCS1.sign ~key ~hash (`Digest digest)
-    | RSA (`PS256, key) ->
-        let module P = Mirage_crypto_pk.Rsa.PSS (Digestif.SHA256) in
-        P.sign ~key (`Message data)
-    | RSA (`PS384, key) ->
-        let module P = Mirage_crypto_pk.Rsa.PSS (Digestif.SHA384) in
-        P.sign ~key (`Message data)
-    | RSA (`PS512, key) ->
-        let module P = Mirage_crypto_pk.Rsa.PSS (Digestif.SHA512) in
-        P.sign ~key (`Message data)
+    | RSA (`PS256, key) -> P0.sign ~key (`Message data)
+    | RSA (`PS384, key) -> P1.sign ~key (`Message data)
+    | RSA (`PS512, key) -> P2.sign ~key (`Message data)
     | P256 (_, key) ->
         let digest = Digestif.SHA256.(to_raw_string (digest_string data)) in
         let r, s = Mirage_crypto_ec.P256.Dsa.sign ~key digest in
@@ -112,6 +130,8 @@ module Pk = struct
   let of_private_key = function
     | #pk as pk -> Ok pk
     | _ -> error_msgf "Unsupported private key"
+
+  let of_private_key_exn pk = of_private_key pk |> msg_to_invalid_arg
 end
 
 type t = { nonce: string option; p: Jsont.json S.t; v: string }
@@ -144,7 +164,7 @@ let protected =
 let base64u =
   let enc = Base64u.encode in
   let dec = Base64u.decode in
-  let dec = Fun.compose msg_to_failure dec in
+  let dec = Fun.compose msg_to_base64_error dec in
   Jsont.map ~enc ~dec Jsont.string
 
 let make_signing_input alg nonce p payload =
@@ -186,7 +206,7 @@ let t ?(understood = []) material =
       let enc = Jsont_bytesrw.encode_string protected in
       let enc = Fun.compose Result.error_to_failure enc in
       let dec = Jsont_bytesrw.decode_string protected in
-      let dec = Fun.compose Result.error_to_failure dec in
+      let dec = Fun.compose error_to_jws_error dec in
       Jsont.map ~enc ~dec base64u
     in
     Object.mem "protected" ?enc protected
@@ -212,57 +232,66 @@ let t ?(understood = []) material =
       match (jwk, material) with
       | _, Some (`Private_key alg_and_pk) ->
           let alg' = Pk.alg alg_and_pk in
-          if alg <> alg' then failwith "Algorithms mismatch";
+          if alg <> alg' then jws_errorf "Algorithms mismatch";
           let pk = Pk.pk alg_and_pk in
           Pk.public pk
       | _, Some (`Public_key p) -> p
       | Some p, None -> p
-      | _ -> failwith "No public key provided"
+      | _ -> jws_errorf "No public key provided"
     in
-    validate_crit ~understood pr |> msg_to_failure;
+    validate_crit ~understood pr |> msg_to_jws_error;
     let m = make_signing_input alg nonce pr p1 in
-    let alg_and_p = Jwk.to_alg_and_p ~alg p () in
+    let alg_and_p =
+      try Jwk.to_alg_and_p ~alg p ()
+      with Invalid_argument msg -> raise (Jws_error msg)
+    in
     if Jwk.tverify alg_and_p m signature then { nonce; p= pr; v= p1 }
-    else failwith "Invalid signature"
+    else jws_errorf "Invalid signature"
   in
   Object.map fn |> fprotected |> fpayload |> fsignature |> Object.finish
 
 let str str = Jsont.String (str, Jsont.Meta.none)
 
-let encode ?alg ?kid ?(extra = S.empty) pk ?nonce data =
-  let alg_and_pk =
-    match alg with
-    | Some alg -> Pk.to_alg_and_pk ~alg pk ()
-    | None -> Pk.to_alg_and_pk pk ()
-  in
+let encode ?kid ?(extra = S.empty) alg_and_pk ?nonce data =
   let p =
     match kid with
     | None ->
-        let t = Jsont.Json.encode Jwk.t (Pk.public pk) in
-        let t = Result.error_to_failure t in
+        let pk = Pk.pk alg_and_pk in
+        let t = Jsont.Json.encode Jwk.t (Pk.public pk) |> Result.get_ok in
         S.add "jwk" t extra
     | Some uri -> S.add "kid" (str uri) extra
   in
   let v = { nonce; p; v= data } in
   Jsont_bytesrw.encode_string (t (Some (`Private_key alg_and_pk))) v
-  |> Result.error_to_failure
+  |> Result.get_ok
+
+let encode_exn ?alg ?kid ?extra pk ?nonce data =
+  let alg_and_pk =
+    match alg with
+    | Some alg -> Pk.to_alg_and_pk ~alg pk ()
+    | None -> Pk.to_alg_and_pk pk ()
+  in
+  encode ?kid ?extra alg_and_pk ?nonce data
+
+let encode ?kid ?extra pk ?nonce data =
+  let alg_and_pk = Pk.to_alg_and_pk pk () in
+  encode ?kid ?extra alg_and_pk ?nonce data
 
 let decode ?(understood = []) ?public str =
   let p = Option.map (fun p -> `Public_key p) public in
-  match Jsont_bytesrw.decode_string (t ~understood p) str with
-  | Ok _ as value -> value
-  | Error _ -> error_msgf "Invalid JWS value"
+  try
+    match Jsont_bytesrw.decode_string (t ~understood p) str with
+    | Ok _ as value -> value
+    | Error _ -> error_msgf "Invalid JWS value"
+  with
+  | Jws_error msg -> error_msgf "%s" msg
+  | Jwk.Base64_error msg -> error_msgf "%s" msg
 
 let decode_exn ?understood ?public str =
   decode ?understood ?public str |> msg_to_failure
 
 module Compact = struct
-  let encode ?alg ?(extra = S.empty) pk ?nonce data =
-    let alg_and_pk =
-      match alg with
-      | Some alg -> Pk.to_alg_and_pk ~alg pk ()
-      | None -> Pk.to_alg_and_pk pk ()
-    in
+  let encode ?(extra = S.empty) alg_and_pk ?nonce data =
     let alg = Pk.alg alg_and_pk in
     let h = Jsont_bytesrw.encode_string protected (alg, nonce, extra) in
     let h = Result.error_to_failure h in
@@ -271,6 +300,18 @@ module Compact = struct
     let signing_input = h64 ^ "." ^ p64 in
     let signature = Pk.tsign alg_and_pk signing_input in
     signing_input ^ "." ^ Base64u.encode signature
+
+  let encode_exn ?alg ?extra pk ?nonce data =
+    let alg_and_pk =
+      match alg with
+      | Some alg -> Pk.to_alg_and_pk ~alg pk ()
+      | None -> Pk.to_alg_and_pk pk ()
+    in
+    encode ?extra alg_and_pk ?nonce data
+
+  let encode ?extra pk ?nonce data =
+    let alg_and_pk = Pk.to_alg_and_pk pk () in
+    encode ?extra alg_and_pk ?nonce data
 
   let decode ?(understood = []) ?public compact =
     match String.split_on_char '.' compact with
@@ -295,7 +336,11 @@ module Compact = struct
               | None -> error_msgf "No public key provided"
             end
         in
-        let alg_and_p = Jwk.to_alg_and_p ~alg p () in
+        let* alg_and_p =
+          match Jwk.to_alg_and_p ~alg p () with
+          | v -> Ok v
+          | exception Invalid_argument msg -> error_msgf "%s" msg
+        in
         if Jwk.tverify alg_and_p m signature then
           let* payload = Base64u.decode p64 in
           Ok { nonce; p= props; v= payload }

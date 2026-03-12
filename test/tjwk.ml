@@ -54,11 +54,43 @@ let test_decode_invalid_kty _ctx =
   let s = {|{"kty": "invalid"}|} in
   assert_bool "Invalid kty" (Result.is_error (Jwk.decode s))
 
+(* Error message tests *)
+
+let assert_error_msg expected result =
+  match result with
+  | Ok _ ->
+      assert_failure
+        (Printf.sprintf "expected Error (`Msg %S), got Ok" expected)
+  | Error (`Msg msg) -> assert_equal ~printer:Fun.id expected msg
+
+let test_decode_malformed_msg _ctx =
+  assert_error_msg "Invalid JWK" (Jwk.decode "{")
+
+let test_decode_invalid_kty_msg _ctx =
+  assert_error_msg "Invalid JWK" (Jwk.decode {|{"kty": "invalid"}|})
+
+let test_decode_invalid_rsa_key_msg _ctx =
+  let s = {|{"kty":"RSA","e":"AQAB","n":"AA"}|} in
+  assert_error_msg "Invalid public RSA key" (Jwk.decode s)
+
+let test_decode_invalid_ec_key_msg _ctx =
+  let s = {|{"kty":"EC","crv":"P-256","x":"AAAA","y":"AAAA"}|} in
+  assert_error_msg "Invalid elliptic curve key" (Jwk.decode s)
+
+let test_decode_invalid_ed25519_msg _ctx =
+  let s = {|{"kty":"OKP","crv":"Ed25519","x":"AAAA"}|} in
+  assert_error_msg "Invalid Ed25519 public key" (Jwk.decode s)
+
 let all_tests =
   [
     "test_encode" >:: test_encode; "test_decode" >:: test_decode
   ; "test_decode_malformed" >:: test_decode_malformed
   ; "test_decode_invalid_kty" >:: test_decode_invalid_kty
   ; "test_decode_invalid_e" >:: test_decode_invalid_e
-  ; "test_decode_invalid_n" >:: test_decode_invalid_n
+  ; "test_decode_invalid_n" >:: test_decode_invalid_n; (* Error messages *)
+    "decode_malformed_msg" >:: test_decode_malformed_msg
+  ; "decode_invalid_kty_msg" >:: test_decode_invalid_kty_msg
+  ; "decode_invalid_rsa_key_msg" >:: test_decode_invalid_rsa_key_msg
+  ; "decode_invalid_ec_key_msg" >:: test_decode_invalid_ec_key_msg
+  ; "decode_invalid_ed25519_msg" >:: test_decode_invalid_ed25519_msg
   ]

@@ -637,7 +637,7 @@ let test_flattened_signing_input_interop _ctx =
 (* RS384 *)
 let test_rs384_compact_roundtrip _ctx =
   let pk : Jws.Pk.t = `RSA rfc7515_rsa_priv in
-  let compact = Jws.Compact.encode ~alg:`RS384 pk "RS384 test" in
+  let compact = Jws.Compact.encode_exn ~alg:`RS384 pk "RS384 test" in
   let decoded =
     Jws.Compact.decode ~public:(Jws.Pk.public pk) compact |> msg_to_failure
   in
@@ -646,7 +646,7 @@ let test_rs384_compact_roundtrip _ctx =
 (* RS512 *)
 let test_rs512_compact_roundtrip _ctx =
   let pk : Jws.Pk.t = `RSA rfc7515_rsa_priv in
-  let compact = Jws.Compact.encode ~alg:`RS512 pk "RS512 test" in
+  let compact = Jws.Compact.encode_exn ~alg:`RS512 pk "RS512 test" in
   let decoded =
     Jws.Compact.decode ~public:(Jws.Pk.public pk) compact |> msg_to_failure
   in
@@ -655,7 +655,7 @@ let test_rs512_compact_roundtrip _ctx =
 (* PS256 *)
 let test_ps256_compact_roundtrip _ctx =
   let pk : Jws.Pk.t = `RSA rfc7515_rsa_priv in
-  let compact = Jws.Compact.encode ~alg:`PS256 pk "PS256 test" in
+  let compact = Jws.Compact.encode_exn ~alg:`PS256 pk "PS256 test" in
   let decoded =
     Jws.Compact.decode ~public:(Jws.Pk.public pk) compact |> msg_to_failure
   in
@@ -664,7 +664,7 @@ let test_ps256_compact_roundtrip _ctx =
 (* PS384 *)
 let test_ps384_compact_roundtrip _ctx =
   let pk : Jws.Pk.t = `RSA rfc7515_rsa_priv in
-  let compact = Jws.Compact.encode ~alg:`PS384 pk "PS384 test" in
+  let compact = Jws.Compact.encode_exn ~alg:`PS384 pk "PS384 test" in
   let decoded =
     Jws.Compact.decode ~public:(Jws.Pk.public pk) compact |> msg_to_failure
   in
@@ -673,7 +673,7 @@ let test_ps384_compact_roundtrip _ctx =
 (* PS512 *)
 let test_ps512_compact_roundtrip _ctx =
   let pk : Jws.Pk.t = `RSA rfc7515_rsa_priv in
-  let compact = Jws.Compact.encode ~alg:`PS512 pk "PS512 test" in
+  let compact = Jws.Compact.encode_exn ~alg:`PS512 pk "PS512 test" in
   let decoded =
     Jws.Compact.decode ~public:(Jws.Pk.public pk) compact |> msg_to_failure
   in
@@ -693,7 +693,7 @@ let test_hs256_compact_roundtrip _ctx =
 let test_hs384_compact_roundtrip _ctx =
   let key = String.make 48 'k' in
   let pk : Jws.Pk.t = `Oct key in
-  let compact = Jws.Compact.encode ~alg:`HS384 pk "HS384 test" in
+  let compact = Jws.Compact.encode_exn ~alg:`HS384 pk "HS384 test" in
   let decoded =
     Jws.Compact.decode ~public:(Jws.Pk.public pk) compact |> msg_to_failure
   in
@@ -703,7 +703,7 @@ let test_hs384_compact_roundtrip _ctx =
 let test_hs512_compact_roundtrip _ctx =
   let key = String.make 64 'k' in
   let pk : Jws.Pk.t = `Oct key in
-  let compact = Jws.Compact.encode ~alg:`HS512 pk "HS512 test" in
+  let compact = Jws.Compact.encode_exn ~alg:`HS512 pk "HS512 test" in
   let decoded =
     Jws.Compact.decode ~public:(Jws.Pk.public pk) compact |> msg_to_failure
   in
@@ -745,9 +745,73 @@ let test_alg_key_mismatch _ctx =
 (* RSA key with non-default alg in flattened JSON *)
 let test_flattened_rs384 _ctx =
   let pk : Jws.Pk.t = `RSA rfc7515_rsa_priv in
-  let encoded = Jws.encode ~alg:`RS384 pk ~nonce:"n" "RS384 flat" in
+  let encoded = Jws.encode_exn ~alg:`RS384 pk ~nonce:"n" "RS384 flat" in
   let decoded = Jws.decode_exn ~public:(Jws.Pk.public pk) encoded in
   assert_equal ~printer:Fun.id "RS384 flat" (Jws.data decoded)
+
+(* Error message tests *)
+
+let assert_error_msg expected result =
+  match result with
+  | Ok _ ->
+      assert_failure
+        (Printf.sprintf "expected Error (`Msg %S), got Ok" expected)
+  | Error (`Msg msg) -> assert_equal ~printer:Fun.id expected msg
+
+let test_decode_invalid_json _ctx =
+  assert_error_msg "Invalid JWS value" (Jws.decode "not json at all")
+
+let test_decode_no_public_key _ctx =
+  let pk : Jws.Pk.t = `RSA rfc7515_rsa_priv in
+  let kid = "https://example.com/acme/acct/1" in
+  let encoded = Jws.encode ~kid pk ~nonce:"n" "test" in
+  assert_error_msg "No public key provided" (Jws.decode encoded)
+
+let test_decode_invalid_signature_msg _ctx =
+  let pk : Jws.Pk.t = `RSA rfc7515_rsa_priv in
+  let encoded = Jws.encode pk ~nonce:"n" "test" in
+  let wrong_key =
+    let priv = Mirage_crypto_pk.Rsa.generate ~bits:2048 () in
+    `RSA (Mirage_crypto_pk.Rsa.pub_of_priv priv)
+  in
+  assert_error_msg "Invalid signature" (Jws.decode ~public:wrong_key encoded)
+
+let test_decode_crit_error_msg _ctx =
+  let pk : Jws.Pk.t = `RSA rfc7515_rsa_priv in
+  let crit =
+    Jsont.Json.encode (Jsont.list Jsont.string) [ "x-unknown" ] |> Result.get_ok
+  in
+  let extra = Jws.S.singleton "crit" crit in
+  let encoded = Jws.encode ~extra pk ~nonce:"n" "test" in
+  assert_error_msg "Unrecognized critical header extension"
+    (Jws.decode ~public:(Jws.Pk.public pk) encoded)
+
+let test_compact_no_key_msg _ctx =
+  let pk : Jws.Pk.t = `RSA rfc7515_rsa_priv in
+  let compact = Jws.Compact.encode pk "test" in
+  assert_error_msg "No public key provided" (Jws.Compact.decode compact)
+
+let test_compact_invalid_signature_msg _ctx =
+  let pk : Jws.Pk.t = `RSA rfc7515_rsa_priv in
+  let compact = Jws.Compact.encode pk "test" in
+  let wrong_key =
+    let priv = Mirage_crypto_pk.Rsa.generate ~bits:2048 () in
+    `RSA (Mirage_crypto_pk.Rsa.pub_of_priv priv)
+  in
+  assert_error_msg "Invalid signature"
+    (Jws.Compact.decode ~public:wrong_key compact)
+
+let test_compact_malformed_msg _ctx =
+  assert_error_msg "Invalid JWS Compact Serialization: expected 3 parts"
+    (Jws.Compact.decode "abc.def")
+
+let test_compact_alg_key_mismatch_msg _ctx =
+  let priv, _pub = Mirage_crypto_ec.P256.Dsa.generate () in
+  let pk : Jws.Pk.t = `P256 priv in
+  let compact = Jws.Compact.encode pk "test" in
+  let wrong_type_key = `RSA rfc7515_rsa_pub in
+  assert_error_msg "Algorithm and public key mismatch"
+    (Jws.Compact.decode ~public:wrong_type_key compact)
 
 (* All tests *)
 
@@ -819,5 +883,13 @@ let all_tests =
   ; "hs512_compact_roundtrip" >:: test_hs512_compact_roundtrip
   ; "eddsa_compact_roundtrip" >:: test_eddsa_compact_roundtrip
   ; "eddsa_deterministic" >:: test_eddsa_deterministic
-  ; "hs256_wrong_key_fails" >:: test_hs256_wrong_key_fails
+  ; "hs256_wrong_key_fails" >:: test_hs256_wrong_key_fails; (* Error messages *)
+    "decode_invalid_json" >:: test_decode_invalid_json
+  ; "decode_no_public_key" >:: test_decode_no_public_key
+  ; "decode_invalid_signature_msg" >:: test_decode_invalid_signature_msg
+  ; "decode_crit_error_msg" >:: test_decode_crit_error_msg
+  ; "compact_no_key_msg" >:: test_compact_no_key_msg
+  ; "compact_invalid_signature_msg" >:: test_compact_invalid_signature_msg
+  ; "compact_malformed_msg" >:: test_compact_malformed_msg
+  ; "compact_alg_key_mismatch_msg" >:: test_compact_alg_key_mismatch_msg
   ]

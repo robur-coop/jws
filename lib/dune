@@ -1,4 +1,10 @@
 (library
  (name jws)
  (modules jws jwk jwa base64u)
- (libraries mirage-crypto-pk mirage-crypto-ec digestif base64 jsont jsont.bytesrw))
+ (libraries
+  mirage-crypto-pk
+  mirage-crypto-ec
+  digestif
+  base64
+  jsont
+  jsont.bytesrw))

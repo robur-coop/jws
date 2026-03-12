@@ -1,17 +1,25 @@
 let error_msgf fmt = Format.kasprintf (fun msg -> Error (`Msg msg)) fmt
-let msg_to_failure = function Ok v -> v | Error (`Msg msg) -> failwith msg
-let failwithf fmt = Format.kasprintf failwith fmt
+
+exception Jwk_error of string
+
+let jwk_errorf fmt = Format.kasprintf (fun str -> raise (Jwk_error str)) fmt
+
+exception Base64_error of string
+
+let msg_to_base64_error = function
+  | Ok v -> v
+  | Error (`Msg msg) -> raise (Base64_error msg)
 
 let base64u =
   let enc = Base64u.encode in
   let dec = Base64u.decode in
-  let dec = Fun.compose msg_to_failure dec in
+  let dec = Fun.compose msg_to_base64_error dec in
   Jsont.map ~enc ~dec Jsont.string
 
 let z =
   let enc = Base64u.Z.encode in
   let dec = Base64u.Z.decode in
-  let dec = Fun.compose msg_to_failure dec in
+  let dec = Fun.compose msg_to_base64_error dec in
   Jsont.map ~enc ~dec Jsont.string
 
 type ec =
@@ -120,7 +128,7 @@ let rsa =
   let fn e n =
     match Mirage_crypto_pk.Rsa.pub ~e ~n with
     | Ok t -> t
-    | Error _ -> failwithf "Invalid public RSA key"
+    | Error _ -> jwk_errorf "Invalid public RSA key"
   in
   Object.map fn |> e |> n |> Object.finish
 
@@ -132,7 +140,7 @@ let ec ~x ~y ~pub_of_octets =
     let str = String.concat "" [ "\004"; x; y ] in
     match pub_of_octets str with
     | Ok t -> t
-    | Error _ -> failwith "Invalid elliptic curve key"
+    | Error _ -> jwk_errorf "Invalid elliptic curve key"
   in
   Object.map fn |> x |> y |> Object.finish
 
@@ -196,7 +204,7 @@ let okp : Mirage_crypto_ec.Ed25519.pub Jsont.t =
     let fn x =
       match pub_of_octets x with
       | Ok t -> t
-      | Error _ -> failwith "Invalid Ed25519 public key"
+      | Error _ -> jwk_errorf "Invalid Ed25519 public key"
     in
     Object.Case.map "Ed25519"
       (Object.map fn |> x_mem |> Object.finish)
@@ -237,9 +245,13 @@ let t =
 let encode v = Jsont_bytesrw.encode_string t v |> Result.get_ok
 
 let decode str =
-  match Jsont_bytesrw.decode_string t str with
-  | Ok _ as value -> value
-  | Error _ -> error_msgf "Invalid JWK"
+  try
+    match Jsont_bytesrw.decode_string t str with
+    | Ok _ as value -> value
+    | Error _ -> error_msgf "Invalid JWK"
+  with
+  | Jwk_error msg -> error_msgf "%s" msg
+  | Base64_error msg -> error_msgf "%s" msg
 
 let signature t =
   let str = encode t in
