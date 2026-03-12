@@ -105,7 +105,7 @@ module Jwk : sig
       {!type:t}. Fails if the key algorithm is not supported (e.g. DSA). *)
 end
 
-module S : Map.S with type key = string
+module S : module type of Map.Make (String)
 
 (** {2 Private keys and signing} *)
 
@@ -157,10 +157,10 @@ val nonce : t -> string option
 val data : t -> string
 (** [data jws] is the payload carried by [jws]. *)
 
-val protected : t -> key:string -> 'a Jsont.t -> 'a option
-(** [protected jws ~key codec] decodes the protected header field [key] using
-    the {!type:Jsont.t} [codec]. Returns [None] when the field is absent or
-    cannot be decoded.
+val value : t -> key:string -> 'a Jsont.t -> 'a option
+(** [value jws ~key codec] decodes the protected header field [key] using the
+    {!type:Jsont.t} [codec]. Returns [None] when the field is absent or cannot
+    be decoded.
 
     For example, to read the ["url"] field added by ACME
     ({{:https://www.rfc-editor.org/rfc/rfc8555}RFC 8555}):
@@ -240,12 +240,18 @@ val decode_exn : ?understood:string list -> ?public:Jwk.t -> string -> t
 
 module Compact : sig
   val encode :
-    ?extra:Jsont.json S.t -> Pk.t -> ?nonce:string -> string -> string
+       ?kid:string
+    -> ?extra:Jsont.json S.t
+    -> Pk.t
+    -> ?nonce:string
+    -> string
+    -> string
   (** [encode_exn ?alg ?extra pk ?nonce data] produces a JWS Compact
       Serialization ([header.payload.signature]). *)
 
   val encode_exn :
        ?alg:Jwa.t
+    -> ?kid:string
     -> ?extra:Jsont.json S.t
     -> Pk.t
     -> ?nonce:string

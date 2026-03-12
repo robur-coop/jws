@@ -1,5 +1,6 @@
 (library
  (name jws)
+ (public_name jws)
  (modules jws jwk jwa base64u)
  (libraries
   mirage-crypto-pk
@@ -8,3 +9,9 @@
   base64
   jsont
   jsont.bytesrw))
+
+(library
+ (name jwt)
+ (public_name jws.jwt)
+ (modules jwt)
+ (libraries jws jsont jsont.bytesrw))

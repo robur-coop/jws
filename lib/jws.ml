@@ -291,8 +291,16 @@ let decode_exn ?understood ?public str =
   decode ?understood ?public str |> msg_to_failure
 
 module Compact = struct
-  let encode ?(extra = S.empty) alg_and_pk ?nonce data =
+  let encode ?kid ?(extra = S.empty) alg_and_pk ?nonce data =
     let alg = Pk.alg alg_and_pk in
+    let extra =
+      match kid with
+      | None ->
+          let pk = Pk.pk alg_and_pk in
+          let t = Jsont.Json.encode Jwk.t (Pk.public pk) |> Result.get_ok in
+          S.add "jwk" t extra
+      | Some uri -> S.add "kid" (str uri) extra
+    in
     let h = Jsont_bytesrw.encode_string protected (alg, nonce, extra) in
     let h = Result.error_to_failure h in
     let h64 = Base64u.encode h in
@@ -301,17 +309,17 @@ module Compact = struct
     let signature = Pk.tsign alg_and_pk signing_input in
     signing_input ^ "." ^ Base64u.encode signature
 
-  let encode_exn ?alg ?extra pk ?nonce data =
+  let encode_exn ?alg ?kid ?extra pk ?nonce data =
     let alg_and_pk =
       match alg with
       | Some alg -> Pk.to_alg_and_pk ~alg pk ()
       | None -> Pk.to_alg_and_pk pk ()
     in
-    encode ?extra alg_and_pk ?nonce data
+    encode ?kid ?extra alg_and_pk ?nonce data
 
-  let encode ?extra pk ?nonce data =
+  let encode ?kid ?extra pk ?nonce data =
     let alg_and_pk = Pk.to_alg_and_pk pk () in
-    encode ?extra alg_and_pk ?nonce data
+    encode ?kid ?extra alg_and_pk ?nonce data
 
   let decode ?(understood = []) ?public compact =
     match String.split_on_char '.' compact with
@@ -386,7 +394,7 @@ end
 let nonce { nonce; _ } = nonce
 let data { v; _ } = v
 
-let protected : type a. t -> key:string -> a Jsont.t -> a option =
+let value : type a. t -> key:string -> a Jsont.t -> a option =
  fun t ~key w ->
   match S.find_opt key t.p with
   | None -> None

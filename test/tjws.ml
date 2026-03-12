@@ -200,7 +200,7 @@ let test_rsa_jws_with_kid _ctx =
   let pub = Jws.Pk.public pk in
   let decoded = Jws.decode_exn ~public:pub encoded in
   assert_equal ~printer:Fun.id payload (Jws.data decoded);
-  let kid_in_header = Jws.protected ~key:"kid" decoded Jsont.string in
+  let kid_in_header = Jws.value ~key:"kid" decoded Jsont.string in
   assert_equal
     ~printer:(fun x -> match x with Some s -> s | None -> "<none>")
     (Some kid) kid_in_header
@@ -355,7 +355,7 @@ let test_jwk_embedded _ctx =
   let decoded = Jws.decode_exn encoded in
   assert_equal ~printer:Fun.id "embedded jwk" (Jws.data decoded);
   assert_bool "jwk must be in protected header"
-    (Jws.protected ~key:"jwk" decoded Jws.Jwk.t |> Option.is_some)
+    (Jws.value ~key:"jwk" decoded Jws.Jwk.t |> Option.is_some)
 
 let test_acme_url_in_header _ctx =
   let priv, _pub = Mirage_crypto_ec.P256.Dsa.generate () in
@@ -367,7 +367,7 @@ let test_acme_url_in_header _ctx =
   assert_equal
     ~printer:Fmt.(to_to_string (Dump.option string))
     (Some uri)
-    (Jws.protected ~key:"url" decoded Jsont.string)
+    (Jws.value ~key:"url" decoded Jsont.string)
 
 let test_acme_post_as_get _ctx =
   let pk : Jws.Pk.t = `RSA rfc7515_rsa_priv in
@@ -506,7 +506,7 @@ let test_compact_with_extra_headers _ctx =
     Jws.Compact.decode ~public:(Jws.Pk.public pk) compact |> msg_to_failure
   in
   assert_equal (Some "bilbo.baggins@hobbiton.example")
-    (Jws.protected ~key:"kid" decoded Jsont.string)
+    (Jws.value ~key:"kid" decoded Jsont.string)
 
 let test_compact_decode_malformed _ctx =
   assert_bool "only 2 parts" (Result.is_error (Jws.Compact.decode "abc.def"));
@@ -788,7 +788,7 @@ let test_decode_crit_error_msg _ctx =
 
 let test_compact_no_key_msg _ctx =
   let pk : Jws.Pk.t = `RSA rfc7515_rsa_priv in
-  let compact = Jws.Compact.encode pk "test" in
+  let compact = Jws.Compact.encode ~kid:"http://example/" pk "test" in
   assert_error_msg "No public key provided" (Jws.Compact.decode compact)
 
 let test_compact_invalid_signature_msg _ctx =
