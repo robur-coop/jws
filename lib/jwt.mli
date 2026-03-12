@@ -101,8 +101,8 @@ val iat : t -> float option
 val jti : t -> string option
 (** [jti jwt] is the ["jti"] claim. *)
 
-val claim : t -> key:string -> 'a Jsont.t -> 'a option
-(** [claim jwt ~key codec] reads a custom claim via a {!type:Jsont.t} codec.
+val value : t -> key:string -> 'a Jsont.t -> 'a option
+(** [value jwt ~key codec] reads a custom claim via a {!type:Jsont.t} codec.
     Returns [None] when the claim is absent or cannot be decoded. *)
 
 (** {2 Encoding} *)

@@ -51,9 +51,9 @@ let test_custom_claim _ctx =
   in
   let token = Jwt.encode pk claims in
   let jwt = Jwt.decode ~public:(Jws.Pk.public pk) token |> msg_to_failure in
-  assert_equal (Some true) (Jwt.claim jwt ~key:"admin" Jsont.bool);
-  assert_equal (Some 42) (Jwt.claim jwt ~key:"level" Jsont.int);
-  assert_equal None (Jwt.claim jwt ~key:"missing" Jsont.string)
+  assert_equal (Some true) (Jwt.value jwt ~key:"admin" Jsont.bool);
+  assert_equal (Some 42) (Jwt.value jwt ~key:"level" Jsont.int);
+  assert_equal None (Jwt.value jwt ~key:"missing" Jsont.string)
 
 (* typ header is set *)
 

@@ -68,7 +68,7 @@ let aud t =
   let v = Option.map fn v in
   Option.join v
 
-let claim t ~key codec =
+let value t ~key codec =
   let v = Jws.S.find_opt key t.claims in
   let fn = Jsont.Json.decode codec in
   let v = Option.map fn v in
