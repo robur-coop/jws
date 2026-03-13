@@ -1,5 +1,9 @@
 let error_msgf fmt = Format.kasprintf (fun msg -> Error (`Msg msg)) fmt
 
+let msg_to_invalid_arg = function
+  | Ok v -> v
+  | Error (`Msg msg) -> invalid_arg msg
+
 exception Jwk_error of string
 
 let jwk_errorf fmt = Format.kasprintf (fun str -> raise (Jwk_error str)) fmt
@@ -65,6 +69,8 @@ let to_alg_and_p p ?(alg = algorithm p) () =
 let of_public_key = function
   | #p as p -> Ok p
   | _ -> error_msgf "Unsupported public key"
+
+let of_public_key_exn p = of_public_key p |> msg_to_invalid_arg
 
 let hash_of_alg : Jwa.t -> [> `SHA256 | `SHA384 | `SHA512 ] = function
   | `HS256 | `RS256 | `ES256 | `PS256 -> `SHA256

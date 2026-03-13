@@ -14,9 +14,9 @@
     ]}
 
     Protected header fields beyond [alg] and [nonce] can be read back via
-    {!val:protected} using any {!type:Jsont.t} decoder:
+    {!val:value} using any {!type:Jsont.t} decoder:
     {[
-      let url = Jws.protected jws ~key:"url" Jsont.string
+      let url = Jws.value jws ~key:"url" Jsont.string
     ]} *)
 
 (** {2 Base64url} *)
@@ -90,20 +90,28 @@ module Jwk : sig
       descriptions. *)
 
   val algorithm : t -> Jwa.t
-  (** [algorithm key] is the default {!type:Jwa.t} algorithm for [key]. *)
+  (** [algorithm p] is the default {!type:Jwa.t} algorithm for the given public
+      key [p]. *)
 
   val verify : ?alg:Jwa.t -> t -> string -> string -> bool
   (** [verify ?alg p data signature] is [true] iff [signature] is a valid
-      signature of [data] under [p] with algorithm [alg] (defaults to the
-      default algorithm of the given [p] (see {!val:algorithm})).
+      signature of [data] under the given public key [p] with algorithm [alg]
+      (defaults to the default algorithm of the given [p] (see
+      {!val:algorithm})).
 
       @raise Invalid_argument
-        if the given [alg] does not match the given public key. *)
+        if the given [alg] does not match the given public key [p]. *)
 
   val of_public_key : [> p ] -> (t, [> `Msg of string ]) result
   (** [of_public_key pk] converts an {!type:X509.Public_key.t} value to a
-      {!type:t}. Fails if the key algorithm is not supported (e.g. DSA). *)
+      {!type:t}. Fails if the key algorithm is not supported. *)
+
+  val of_public_key_exn : [> p ] -> t
+  (** [of_public_key_exn p] is like {!val:of_public_key} but raises
+      [Invalid_argument] on unsupported key types. *)
 end
+
+(** {2 A Key-Value map to represent a JSON object} *)
 
 module S : module type of Map.Make (String)
 

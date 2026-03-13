@@ -51,13 +51,16 @@ module Claims : sig
   (** Set the ["aud"] (audience) claim as a single string. *)
 
   val exp : float -> t -> t
-  (** Set the ["exp"] (expiration time) claim as a NumericDate. *)
+  (** Set the ["exp"] (expiration time) claim as a epoch date (seconds since
+      epoch) *)
 
   val nbf : float -> t -> t
-  (** Set the ["nbf"] (not before) claim as a NumericDate. *)
+  (** Set the ["nbf"] (not before) claim as a epoch date (seconds since epoch).
+  *)
 
   val iat : float -> t -> t
-  (** Set the ["iat"] (issued at) claim as a NumericDate. *)
+  (** Set the ["iat"] (issued at) claim as a epoch date (seconds since epoch).
+  *)
 
   val jti : string -> t -> t
   (** Set the ["jti"] (JWT ID) claim. *)
@@ -76,7 +79,7 @@ type t
 (** A decoded and verified JWT. *)
 
 val jws : t -> Jws.t
-(** [header jwt] is the underlying JWS value. Use {!val:Jws.protected} to read
+(** [header jwt] is the underlying JWS value. Use {!val:Jws.value} to read
     header fields such as ["kid"]. *)
 
 val sub : t -> string option
