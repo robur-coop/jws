@@ -64,3 +64,5 @@ integrated and do not require any additional action on the part of the user.
 [ocaml-jose]: https://github.com/ulrikstrid/ocaml-jose
 [ocaml-jwt]: https://github.com/besport/ocaml-jwt
 [jwto]: https://github.com/sporto/jwto
+[ocaml-letsencrypt]: https://github.com/robur-coop/ocaml-letsencrypt
+[RFC 7515]: https://datatracker.ietf.org/doc/html/rfc7515
