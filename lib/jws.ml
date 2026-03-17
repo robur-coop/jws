@@ -1,5 +1,6 @@
 let msg_to_failure = function Ok v -> v | Error (`Msg msg) -> failwith msg
 let error_msgf fmt = Format.kasprintf (fun msg -> Error (`Msg msg)) fmt
+let error_to_failure = function Ok v -> v | Error err -> failwith err
 let ( let* ) = Result.bind
 
 exception Jws_error of string
@@ -169,7 +170,7 @@ let base64u =
 
 let make_signing_input alg nonce p payload =
   let p0 = Jsont_bytesrw.encode_string protected (alg, nonce, p) in
-  let p0 = Result.error_to_failure p0 in
+  let p0 = error_to_failure p0 in
   Base64u.encode p0 ^ "." ^ Base64u.encode payload
 
 let compute_signature alg_and_pk { nonce; p; v= p1 } =
@@ -204,7 +205,7 @@ let t ?(understood = []) material =
     in
     let protected =
       let enc = Jsont_bytesrw.encode_string protected in
-      let enc = Fun.compose Result.error_to_failure enc in
+      let enc = Fun.compose error_to_failure enc in
       let dec = Jsont_bytesrw.decode_string protected in
       let dec = Fun.compose error_to_jws_error dec in
       Jsont.map ~enc ~dec base64u
@@ -302,7 +303,7 @@ module Compact = struct
       | Some uri -> S.add "kid" (str uri) extra
     in
     let h = Jsont_bytesrw.encode_string protected (alg, nonce, extra) in
-    let h = Result.error_to_failure h in
+    let h = error_to_failure h in
     let h64 = Base64u.encode h in
     let p64 = Base64u.encode data in
     let signing_input = h64 ^ "." ^ p64 in
