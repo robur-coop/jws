@@ -11,8 +11,8 @@ let n64 =
   ^ "dkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF4"
   ^ "4-csFCur-kEgU8awapJzKnqDKgw"
 
-let n = Base64u.Z.decode n64 |> msg_to_failure
 let e64 = "AQAB"
+let n = Base64u.Z.decode n64 |> msg_to_failure
 let e = Base64u.Z.decode e64 |> msg_to_failure
 
 let pk =
@@ -22,6 +22,14 @@ let pk =
 let test_encode _ctx =
   let got = Jwk.encode pk in
   let expected = Printf.sprintf {|{"kty":"RSA","e":"%s","n":"%s"}|} e64 n64 in
+  assert_equal got expected
+
+let test_signature _ctx =
+  let got = Jwk.signature pk in
+  (* NOTE(dinosaure): this test is fragile because it relies on the order of JSON members.
+     [ocaml-letsencrypt] orders like [e, kty, n] where we order [e, n, kty]. So we differ
+     from [ocaml-letsencrypt] and I'm not sure that such order is required or not. *)
+  let expected = "JB6443M7xg5tnuL5A8fNJnxFJpa0bXE4b02-X08AjS0" in
   assert_equal got expected
 
 let decode_example =
@@ -83,7 +91,8 @@ let test_decode_invalid_ed25519_msg _ctx =
 
 let all_tests =
   [
-    "test_encode" >:: test_encode; "test_decode" >:: test_decode
+    "test_encode" >:: test_encode; "test_signature" >:: test_signature
+  ; "test_decode" >:: test_decode
   ; "test_decode_malformed" >:: test_decode_malformed
   ; "test_decode_invalid_kty" >:: test_decode_invalid_kty
   ; "test_decode_invalid_e" >:: test_decode_invalid_e

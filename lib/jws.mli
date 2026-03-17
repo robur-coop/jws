@@ -109,6 +109,8 @@ module Jwk : sig
   val of_public_key_exn : [> p ] -> t
   (** [of_public_key_exn p] is like {!val:of_public_key} but raises
       [Invalid_argument] on unsupported key types. *)
+
+  val signature : t -> string
 end
 
 (** {2 A Key-Value map to represent a JSON object} *)
