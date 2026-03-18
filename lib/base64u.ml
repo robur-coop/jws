@@ -22,12 +22,10 @@ let decode str =
   let pad = false and alphabet = Base64.uri_safe_alphabet in
   Base64.decode ~pad ~alphabet str
 
-let compose f g x = f (g x)
-let ( $ ) = compose
 let ( let* ) = Result.bind
 
 module Z = struct
-  let encode = encode $ trim_leading_null $ rev $ Z.to_bits
+  let encode n = encode @@ trim_leading_null @@ rev @@ Z.to_bits n
 
   let decode z64 =
     let* bits = decode z64 in
