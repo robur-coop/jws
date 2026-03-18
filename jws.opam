@@ -19,6 +19,7 @@ depends: [
   "mirage-crypto-pk" {>= "2.0.0"}
   "mirage-crypto-ec" {>= "2.0.0"}
   "base64" {>= "3.4.0"}
+  "digestif" {>= "1.3.0"}
   "jsont"
   "bytesrw"
   "ounit2" {with-test}

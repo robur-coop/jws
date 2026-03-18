@@ -52,12 +52,13 @@ There are several other projects that can decode and encode JWTs:
 `jws` is the only one that supports all signature algorithms as stated in [RFC
 7518, 3.1](https://datatracker.ietf.org/doc/html/rfc7518#section-3.1). Next,
 `jws` offers compatibility with `X509.{Private_key,Public_key}` **without**
-depending on it, using polymorphic variants. `jws` has fewer dependencies (the
-use of `astring` remains minor, and `ptime` is not really required). `jws` is
-certainly less complete than `jose` (which also offers JWK and JWE), but it is a
-little easier to use. It essentially only offers an `encode` function and a
-`decode` function. Checks (expiry, date, audience, public key, etc.) are
-integrated and do not require any additional action on the part of the user.
+depending on it, using polymorphic variants. `jws` has fewer dependencies than
+`jose` (the use of `astring` remains minor, and `ptime` is not really
+required). `jws` is certainly less complete than `jose` (which also offers JWK
+and JWE), but it is a little easier to use. It essentially only offers an
+`encode` function and a `decode` function. Checks (expiry, date, audience,
+public key, etc.) are integrated and do not require any additional action on the
+part of the user.
 
 [mirage-crypto]: https://github.com/mirage/mirage-crypto/
 [jsont]: https://github.com/dbuenzli/jsont
