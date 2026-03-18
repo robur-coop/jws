@@ -16,8 +16,9 @@ synopsis: "Implementation of JWS (RFC7515) with Jsont and mirage-crypto"
 depends: [
   "ocaml" {>= "4.14.0"}
   "dune"  {>= "3.0"}
-  "mirage-crypto-pk"
-  "mirage-crypto-ec"
+  "mirage-crypto-pk" {>= "2.0.0"}
+  "mirage-crypto-ec" {>= "2.0.0"}
+  "base64" {>= "3.4.0"}
   "jsont"
   "bytesrw"
   "ounit2" {with-test}
