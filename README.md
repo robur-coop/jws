@@ -3,7 +3,8 @@
 There are many implementations of JSON Web tokens, but this one has two
 characteristics:
 - it works well with [mirage-crypto][mirage-crypto]
-- It does not use GADTs and prefers (à la `mirage-crypto`) to use polymorphic variants
+- It does not use GADTs and prefers (à la `mirage-crypto`) to use polymorphic
+  variants
 - It uses [jsont][jsont]
 - It essentially offers what the user wants, namely to encode and decode JWTs
 
@@ -60,7 +61,6 @@ integrated and do not require any additional action on the part of the user.
 
 [mirage-crypto]: https://github.com/mirage/mirage-crypto/
 [jsont]: https://github.com/dbuenzli/jsont
-[RFC7515]: https://datatracker.ietf.org/doc/html/rfc7515
 [ocaml-jose]: https://github.com/ulrikstrid/ocaml-jose
 [ocaml-jwt]: https://github.com/besport/ocaml-jwt
 [jwto]: https://github.com/sporto/jwto
