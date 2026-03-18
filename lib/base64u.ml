@@ -22,7 +22,8 @@ let decode str =
   let pad = false and alphabet = Base64.uri_safe_alphabet in
   Base64.decode ~pad ~alphabet str
 
-let ( $ ) = Fun.compose
+let compose f g x = f (g x)
+let ( $ ) = compose
 let ( let* ) = Result.bind
 
 module Z = struct

@@ -165,7 +165,7 @@ let protected =
 let base64u =
   let enc = Base64u.encode in
   let dec = Base64u.decode in
-  let dec = Fun.compose msg_to_base64_error dec in
+  let dec s = msg_to_base64_error (dec s) in
   Jsont.map ~enc ~dec Jsont.string
 
 let make_signing_input alg nonce p payload =
@@ -205,9 +205,9 @@ let t ?(understood = []) material =
     in
     let protected =
       let enc = Jsont_bytesrw.encode_string protected in
-      let enc = Fun.compose error_to_failure enc in
+      let enc s = error_to_failure (enc s) in
       let dec = Jsont_bytesrw.decode_string protected in
-      let dec = Fun.compose error_to_jws_error dec in
+      let dec s = error_to_jws_error (dec s) in
       Jsont.map ~enc ~dec base64u
     in
     Object.mem "protected" ?enc protected

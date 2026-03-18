@@ -17,13 +17,13 @@ let msg_to_base64_error = function
 let base64u =
   let enc = Base64u.encode in
   let dec = Base64u.decode in
-  let dec = Fun.compose msg_to_base64_error dec in
+  let dec s = msg_to_base64_error (dec s) in
   Jsont.map ~enc ~dec Jsont.string
 
 let z =
   let enc = Base64u.Z.encode in
   let dec = Base64u.Z.decode in
-  let dec = Fun.compose msg_to_base64_error dec in
+  let dec s = msg_to_base64_error (dec s) in
   Jsont.map ~enc ~dec Jsont.string
 
 type ec =
