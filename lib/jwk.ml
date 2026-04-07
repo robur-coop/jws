@@ -259,8 +259,39 @@ let decode str =
   | Jwk_error msg -> error_msgf "%s" msg
   | Base64_error msg -> error_msgf "%s" msg
 
-let signature t =
-  let str = encode t in
+let strf = Format.asprintf
+
+let signature (t : t) =
+  (* NOTE(dinosaure): the order is really important here and we can not trust
+     [jsont] to produce exactly what we want. So we generate by hands the JSON
+     and calculate the signature then. *)
+  let str = match t with
+    | `P256 key ->
+        let octets = Mirage_crypto_ec.P256.Dsa.pub_to_octets key in
+        let x = Base64u.encode (String.sub octets 1 32) in
+        let y = Base64u.encode (String.sub octets 33 32) in
+        strf {|{"crv":"P-256","kty":"EC","x":"%s","y":"%s"}|} x y
+    | `P384 key ->
+        let octets = Mirage_crypto_ec.P384.Dsa.pub_to_octets key in
+        let x = Base64u.encode (String.sub octets 1 48) in
+        let y = Base64u.encode (String.sub octets 49 48) in
+        strf {|{"crv":"P-384","kty":"EC","x":"%s","y":"%s"}|} x y
+    | `P521 key ->
+        let octets = Mirage_crypto_ec.P521.Dsa.pub_to_octets key in
+        let x = Base64u.encode (String.sub octets 1 66) in
+        let y = Base64u.encode (String.sub octets 67 66) in
+        strf {|{"crv":"P-521","kty":"EC","x":"%s","y":"%s"}|} x y
+    | `RSA key ->
+        let e = Base64u.Z.encode key.Mirage_crypto_pk.Rsa.e in
+        let n = Base64u.Z.encode key.Mirage_crypto_pk.Rsa.n in
+        strf {|{"e":"%s","kty":"RSA","n":"%s"}|} e n
+    | `ED25519 key ->
+        let x = Base64u.encode (Mirage_crypto_ec.Ed25519.pub_to_octets key) in
+        strf {|{"crv":"Ed25519","kty":"OKP","x":"%s"}|} x
+    | `Oct key ->
+        let k = Base64u.encode key in
+        strf {|{"k":"%s","kty":"oct"}|} k
+  in
   let hash = Digestif.SHA256.digest_string str in
   let hash = Digestif.SHA256.to_raw_string hash in
   Base64u.encode hash

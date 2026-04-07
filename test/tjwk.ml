@@ -26,10 +26,7 @@ let test_encode _ctx =
 
 let test_signature _ctx =
   let got = Jwk.signature pk in
-  (* NOTE(dinosaure): this test is fragile because it relies on the order of JSON members.
-     [ocaml-letsencrypt] orders like [e, kty, n] where we order [e, n, kty]. So we differ
-     from [ocaml-letsencrypt] and I'm not sure that such order is required or not. *)
-  let expected = "JB6443M7xg5tnuL5A8fNJnxFJpa0bXE4b02-X08AjS0" in
+  let expected = "NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs" in
   assert_equal got expected
 
 let decode_example =
